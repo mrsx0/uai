@@ -1,0 +1,173 @@
+{
+  "name": "uAI",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://drive.usercontent.google.com/download?id=1jaNl2kL-a32HO_jXH3g3J1mGHzHWm9YD&export=download&confirm=t&uuid=32e72aa8-1939-4262-b653-19a24258f9ef",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        20,
+        -500
+      ],
+      "id": "65670da7-4502-4625-b975-fa12a6a30802",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        -500
+      ],
+      "id": "441dabc3-c9dd-4a32-bb22-8ab4aa295269",
+      "name": "Compression"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// A variável do item de entrada já está disponível como \"item\".\n// A linha \"const item = $item;\" foi removida.\n\n// 1. Garante que a propriedade 'json' sempre exista.\nif (!item.json) {\n  item.json = {};\n}\n\n// 2. Inicializa o contexto com uma mensagem de aviso.\nitem.json.contexto_dos_arquivos = \"AVISO: Nenhum arquivo binário foi encontrado ou processado no item de entrada.\";\nlet contextoFinal = \"\";\n\n// 3. Verifica e processa a propriedade 'binary' de forma segura.\nif (item.binary && typeof item.binary === 'object') {\n  const arquivosBinarios = item.binary;\n\n  for (const key in arquivosBinarios) {\n    const arquivo = arquivosBinarios[key];\n    \n    if (arquivo && arquivo.data && arquivo.fileName) {\n      const nomeArquivo = arquivo.fileName;\n      const conteudoTexto = Buffer.from(arquivo.data, 'base64').toString('utf8');\n      \n      contextoFinal += `### Arquivo: ${nomeArquivo} ###\\n\\n`;\n      contextoFinal += conteudoTexto;\n      contextoFinal += \"\\n\\n---\\n\\n\";\n    }\n  }\n  \n  // Se o contexto foi preenchido, atualiza o item.\n  if (contextoFinal) {\n    item.json.contexto_dos_arquivos = contextoFinal;\n  }\n}\n\n// 4. Retorna o item modificado em TODOS os cenários.\nreturn item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -500
+      ],
+      "id": "bd4ccf9e-2353-4792-af50-ad4b58e65896",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "formTitle": "Pesquisa de Notas Fiscais",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Pergunte",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        -500
+      ],
+      "id": "9ef40fd8-08c0-4bc0-84a5-4e62cf0cddc7",
+      "name": "On form submission",
+      "webhookId": "969ef4d3-108a-4078-97a3-8fa21ef86aba"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-pro-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -300
+      ],
+      "id": "9ba11487-7ca3-4c4c-8580-7816ed0b468a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "1fLejVCZDoWTD15a",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=### Conteúdo dos Arquivos:\n{{ $('Code').first().json.contexto_dos_arquivos }}\n\ncom os arquivos fornecidos, e sendo que as notas fiscais do arquivo tem as colunas: \nChave de acesso\nModelo, série e número da nota\nNatureza da operação\nData de emissão e evento\nEmitente e destinatário (CNPJ, razão social, UF, município)\nTipo de operação (interna/interestadual)\nValor total da nota\n\nresponda a pergunta:\n{{ $('On form submission').item.json.Pergunte }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        700,
+        -500
+      ],
+      "id": "4aa8a41b-fe85-4bcb-95b8-abed5383a9fe",
+      "name": "AI Agent"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Compression",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compression": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "versionId": "5f0ea004-22db-4585-95fe-89f1c24b03aa",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9f2e7055939d0007b0147d7bc17aaebee39d7f0a48e703808df23e551c1c99f4"
+  },
+  "id": "OvZv0dnh6mdfAqps",
+  "tags": []
+}
